@@ -46,24 +46,57 @@ def mergeCrawl(output_name, temp_folder: str, target_folder: str = 'result') -> 
                            remove_temp=True, codec="libx264", audio_codec="aac")
 
 
+def separate_player_url(player_url: str) -> tuple[str, str]:
+    player_id = player_url.split('/')[-3]
+    player_name = player_url.split('/')[-2].replace('-', ' ').title()
+    return player_id, player_name
+
+
+def separate_game_url(game_url: str, player_team: str) -> tuple[str, str]:
+    for word in game_url.split('/')[-1].split('-'):
+        if len(word) > 3:
+            game_id = word
+        elif len(word) == 3 and word != player_team.lower():
+            game_opponent = word
+    return game_id, game_opponent
+
+
 if __name__ == '__main__':
 
-    name = 'Derrick White'
-    date = '2023-10-30'
+    name = input("Please enter the NBA player's name: ")
+    # name = 'Chet Holmgren'
     dr = Chrome_webdriver()
-
-    player_id, player_name, team = dr.search_player_id(name)
-    print(player_id, player_name, team)
-    game_id, game_rival, game_status_code = dr.search_game_id(team, date)
-    print(game_id, game_rival, game_status_code)
-    code_explain = {
-        0: 'do not exist', 1: "haven't begin yet", 2: 'is ongoing', 3: 'finished'}
-    if game_status_code < 3:
-        print(
-            f'cannot produce highlight now because the game {code_explain[game_status_code]}')
-        exit()
-    target_list = dr.player_highlight(player_id, game_id, date)
-    print(len(target_list))
-    output_name = f"{player_name} vs {game_rival.upper()} Highlights {date}.mp4"
+    player_url, player_team = dr.search_player_url(name)
+    player_id, player_name = separate_player_url(player_url)
+    header_arr, value_arr, target_list = dr.player_lastest_highlight(
+        player_url)
+    stats_dic: dict[str, str] = {x: y for x, y in zip(header_arr, value_arr)}
+    print(stats_dic)
+    game_opponent = stats_dic['Matchup'].split()[-1]
+    date = stats_dic['Game Date']
+    output_name = f"{player_name} {date} vs {game_opponent.upper()} Highlights .mp4"
+    print(output_name)
     if target_list:
         startCrawl(output_name, target_list)
+
+    # name = input("Please enter the NBA player's name: ")
+    # date = input("Please enter the date (YYYY-MM-DD): ")
+    # # name = 'Chet Holmgren'
+    # # date = "2023-11-02"
+
+    # dr = Chrome_webdriver()
+    # player_url, player_team = dr.search_player_url(name)
+    # player_id, player_name = separate_player_url(player_url)
+
+    # game_url, game_status_code = dr.search_game_url(player_team, date)
+    # game_id, game_opponent = separate_game_url(game_url, player_team)
+
+    # code_explain = {
+    #     0: 'do not exist', 1: "haven't begin yet", 2: 'is ongoing', 3: 'finished'}
+    # if game_status_code < 3:
+    #     print(
+    #         f'cannot produce highlight now because the game {code_explain[game_status_code]}')
+    # target_list = dr.player_highlight(player_id, game_id, date)
+    # output_name = f"{player_name} {date} vs {game_opponent.upper()} Highlights .mp4"
+    # if target_list:
+    #     startCrawl(output_name, target_list)

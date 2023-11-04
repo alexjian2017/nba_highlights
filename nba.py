@@ -8,7 +8,7 @@ from moviepy.editor import VideoFileClip, concatenate_videoclips
 from crawler import timed, Chrome_webdriver
 
 
-def single_scrape(url: str, temp_folder: str = 'crawl_temp', filename: str = '', chunk_size: int = 1024) -> None:
+def single_scrape(url: str, temp_folder: str, filename: str = '', chunk_size: int = 1024) -> None:
     """
     You already have url link with video in it
     """
@@ -28,7 +28,8 @@ def startCrawl(output_name: str, target_list: list[str], temp_folder: str = 'cra
         shutil.rmtree(temp_folder)
     os.mkdir(temp_folder)
     with ThreadPoolExecutor(max_workers=16) as executor:
-        executor.map(single_scrape, target_list)
+        executor.map(single_scrape, target_list,
+                     [temp_folder] * len(target_list))
     mergeCrawl(output_name, temp_folder)
     shutil.rmtree(temp_folder)
 
@@ -61,21 +62,40 @@ def separate_game_url(game_url: str, player_team: str) -> tuple[str, str]:
     return game_id, game_opponent
 
 
+def date_converter(date: str) -> str:
+    """
+    input: NOV 03, 2023
+    output: 2023-11-03
+    """
+    month_str = ['jan', 'feb', 'mar', 'apr', 'may',
+                 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+    month_converter = {month: f'{i:02.0f}' for month,
+                       i in zip(month_str, range(1, 13))}
+    month, day, year = date.strip().split()
+    month = month_converter[month.lower()]
+    day = day[:-1]
+    return f'{year}-{month}-{day}'
+
+
+def output_name_creator(player_url: str, header_arr: list[str], value_arr: list[str]):
+    player_name = player_url.split('/')[-2].replace('-', ' ').title()
+    stats_dic: dict[str, str] = {
+        head: value for head, value in zip(header_arr, value_arr)}
+    game_opponent = stats_dic['Matchup'].split()[-1]
+    date = date_converter(stats_dic['Game Date'])
+    return f"{player_name} {date} vs {game_opponent.upper()} Highlights.mp4"
+
+
 if __name__ == '__main__':
 
     name = input("Please enter the NBA player's name: ")
     # name = 'Chet Holmgren'
     dr = Chrome_webdriver()
     player_url, player_team = dr.search_player_url(name)
-    player_id, player_name = separate_player_url(player_url)
     header_arr, value_arr, target_list = dr.player_lastest_highlight(
         player_url)
-    stats_dic: dict[str, str] = {x: y for x, y in zip(header_arr, value_arr)}
-    print(stats_dic)
-    game_opponent = stats_dic['Matchup'].split()[-1]
-    date = stats_dic['Game Date']
-    output_name = f"{player_name} {date} vs {game_opponent.upper()} Highlights .mp4"
-    print(output_name)
+
+    output_name = output_name_creator(player_url, header_arr, value_arr)
     if target_list:
         startCrawl(output_name, target_list)
 

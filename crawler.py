@@ -6,6 +6,7 @@ from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"
+HIGHLIGHTS_TARGET = {'FGM': 3, 'AST': 1, 'STL': 1, 'BLK': 1}
 
 
 def timed(function):
@@ -84,6 +85,10 @@ class Chrome_webdriver(webdriver.Chrome):
         return '', 0
 
     def determine_season(self, date: str) -> str:
+        if not date:
+            # nba is in UTC-5 and taiwan are in UTC+8 time zone
+            date = (datetime.datetime.now() -
+                    datetime.timedelta(days=1)).strftime('%Y-%m-%d')
         year, month, day = date.split('-')
         year_int = int(year)
         if int(month) >= 10:
@@ -91,11 +96,21 @@ class Chrome_webdriver(webdriver.Chrome):
         else:
             return f'{str(year_int-1)}-{year[2:]}'
 
-    def player_highlight(self, player_id: str, game_id: str, date: str) -> list[str]:
-        stats = {'FGM': 3, 'AST': 1, 'STL': 1, 'BLK': 1}
+    def get_player_id(self, player_url: str) -> str:
+        player_id = player_url.split('/')[-3]
+        return player_id
+
+    def get_game_id(self, game_url: str) -> str:
+        for word in game_url.split('/')[-1].split('-'):
+            if len(word) > 3:
+                return word
+
+    def player_highlight(self, player_url: str, game_url: str, date: str) -> list[str]:
         season = self.determine_season(date)
+        player_id = self.get_player_id(player_url)
+        game_id = self.get_game_id(game_url)
         target_list = []
-        for key, val in stats.items():
+        for key, val in HIGHLIGHTS_TARGET.items():
             url = f'https://www.nba.com/stats/events/?ContextMeasure={key}&GameID={game_id}&PlayerID={player_id}&Season={season}&flag={val}&sct=plot&section=game'
             self.get(url)
             data = self.find_elements(
@@ -114,8 +129,7 @@ class Chrome_webdriver(webdriver.Chrome):
                 target_list.append(video_url)
         return target_list
 
-    def player_lastest_highlight(self, player_url: str) -> tuple[list, list, list]:
-        highlight_target = {'FGM', 'AST', 'STL', 'BLK'}
+    def player_lastest_highlight(self, player_url: str) -> tuple[list[str], list[str], list[str]]:
         highlight_index = set()
         header_arr, value_arr = [], []
         extra_url, target_list = [], []
@@ -127,7 +141,7 @@ class Chrome_webdriver(webdriver.Chrome):
         for i, element in enumerate(header_element):
             header = element.get_attribute('innerHTML')
             header_arr.append(header)
-            if header in highlight_target:
+            if header in HIGHLIGHTS_TARGET:
                 highlight_index.add(i)
 
         # collect the lastest game stats

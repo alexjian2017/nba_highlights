@@ -161,4 +161,9 @@ cython_debug/
 
 # Custom
 result/
+token files/
+client_secret.json
+demo.py
+google_apis.py
+test.mp4
 

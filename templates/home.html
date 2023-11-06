@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block head %}
+NBA
+{% endblock %}
+
+{% block body %}
+<div class="content">
+    <h1 style="text-align: center">Player List</h1>
+        {% if players|length < 1 %}
+        <h4 style="text-align: center">There is no players. Create one below</h4>
+        {% else %}
+        <form action="/" method="POST">
+            <label>Player Name</label>
+            <input type="text" name="player_name" >
+            <label>Player Group</label>
+            <input type="text" name="player_group" >
+            <input type="submit" value="Add Player">
+        </form>
+        <div class="MockStatsTable_statsTable__V_Skx">
+            <div>
+                <table> 
+                    <thead>
+                    <tr>
+                        <th>Player Name</th>
+                        <th>Player ID</th>
+                        <th>Group</th>
+                        <th>Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for player in players %}
+                    <tr>
+                        <td>{{ player.player_name }}</td>                
+                        <td>{{ player.player_id }}</td>
+                        <td>{{ player.group }}</td>
+                        <td>
+                            <a href="/delete/{{ player.id }}">Delete</a>
+                            <br>
+                        </td>
+                    </tr>
+                    </tbody>
+                    {% endfor %}
+                </table>
+            </div>
+        </div>
+        
+        {% endif %}
+
+    <form action="/download" method="post">
+        {% for group in groups %}
+            <input type="checkbox" name="player_group" value="{{ group[0] }}">
+            <label for="{{ group[0] }}">{{ group[0] }}</label><br>
+        {% endfor %}
+        <input type="submit" value="Download">
+    </form>
+</div>
+{% endblock %}

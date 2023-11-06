@@ -31,7 +31,10 @@ def startCrawl(output_name: str, target_list: list[str], temp_folder: str = 'cra
         executor.map(single_scrape, target_list,
                      [temp_folder] * len(target_list))
     mergeCrawl(output_name, temp_folder)
-    shutil.rmtree(temp_folder)
+    try:
+        shutil.rmtree(temp_folder)
+    except PermissionError:
+        pass
 
 
 def mergeCrawl(output_name, temp_folder: str, target_folder: str = 'result') -> None:
@@ -47,56 +50,18 @@ def mergeCrawl(output_name, temp_folder: str, target_folder: str = 'result') -> 
                            remove_temp=True, codec="libx264", audio_codec="aac")
 
 
-def separate_player_url(player_url: str) -> tuple[str, str]:
-    player_id = player_url.split('/')[-3]
-    player_name = player_url.split('/')[-2].replace('-', ' ').title()
-    return player_id, player_name
-
-
-def separate_game_url(game_url: str, player_team: str) -> tuple[str, str]:
-    for word in game_url.split('/')[-1].split('-'):
-        if len(word) > 3:
-            game_id = word
-        elif len(word) == 3 and word != player_team.lower():
-            game_opponent = word
-    return game_id, game_opponent
-
-
-def date_converter(date: str) -> str:
-    """
-    input: NOV 03, 2023
-    output: 2023-11-03
-    """
-    month_str = ['jan', 'feb', 'mar', 'apr', 'may',
-                 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
-    month_converter = {month: f'{i:02.0f}' for month,
-                       i in zip(month_str, range(1, 13))}
-    month, day, year = date.strip().split()
-    month = month_converter[month.lower()]
-    day = day[:-1]
-    return f'{year}-{month}-{day}'
-
-
-def output_name_creator(player_url: str, header_arr: list[str], value_arr: list[str]):
-    player_name = player_url.split('/')[-2].replace('-', ' ').title()
-    stats_dic: dict[str, str] = {
-        head: value for head, value in zip(header_arr, value_arr)}
-    game_opponent = stats_dic['Matchup'].split()[-1]
-    date = date_converter(stats_dic['Game Date'])
-    return f"{player_name} {date} vs {game_opponent.upper()} Highlights.mp4"
-
-
 if __name__ == '__main__':
-
     name = input("Please enter the NBA player's name: ")
     # name = 'Chet Holmgren'
     dr = Chrome_webdriver()
     player_url, player_team = dr.search_player_url(name)
+    player_id, player_name = dr.separate_player_url(player_url)
     header_arr, value_arr, target_list = dr.player_lastest_highlight(
-        player_url)
+        player_id)
 
-    output_name = output_name_creator(player_url, header_arr, value_arr)
     if target_list:
+        output_name = dr.output_name_creator(player_url, header_arr, value_arr)
+        print(output_name, len(target_list))
         startCrawl(output_name, target_list)
 
     # name = input("Please enter the NBA player's name: ")
@@ -106,10 +71,10 @@ if __name__ == '__main__':
 
     # dr = Chrome_webdriver()
     # player_url, player_team = dr.search_player_url(name)
-    # player_id, player_name = separate_player_url(player_url)
+    # player_id, player_name = dr.separate_player_url(player_url)
 
     # game_url, game_status_code = dr.search_game_url(player_team, date)
-    # game_id, game_opponent = separate_game_url(game_url, player_team)
+    # game_id, game_opponent = dr.separate_game_url(game_url, player_team)
 
     # code_explain = {
     #     0: 'do not exist', 1: "haven't begin yet", 2: 'is ongoing', 3: 'finished'}

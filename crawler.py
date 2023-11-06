@@ -84,7 +84,8 @@ class Chrome_webdriver(webdriver.Chrome):
             return href, int(game_status_code)
         return '', 0
 
-    def determine_season(self, date: str) -> str:
+    @staticmethod
+    def determine_season(date: str) -> str:
         if not date:
             # nba is in UTC-5 and taiwan are in UTC+8 time zone
             date = (datetime.datetime.now() -
@@ -96,19 +97,52 @@ class Chrome_webdriver(webdriver.Chrome):
         else:
             return f'{str(year_int-1)}-{year[2:]}'
 
-    def get_player_id(self, player_url: str) -> str:
+    @staticmethod
+    def separate_player_url(player_url: str) -> tuple[str, str]:
         player_id = player_url.split('/')[-3]
-        return player_id
+        player_name = player_url.split('/')[-2].replace('-', ' ').title()
+        return player_id, player_name
 
-    def get_game_id(self, game_url: str) -> str:
+    @staticmethod
+    def separate_game_url(game_url: str) -> str:
         for word in game_url.split('/')[-1].split('-'):
             if len(word) > 3:
                 return word
+        return ''
+
+    @staticmethod
+    def date_converter(date: str) -> str:
+        """
+        input: NOV 03, 2023
+        output: 2023-11-03
+        """
+        month_str = ['jan', 'feb', 'mar', 'apr', 'may',
+                     'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+        month_converter = {month: f'{i:02.0f}' for month,
+                           i in zip(month_str, range(1, 13))}
+        month, day, year = date.strip().split()
+        month = month_converter[month.lower()]
+        day = day[:-1]
+        return f'{year}-{month}-{day}'
+
+    @staticmethod
+    def output_name_creator(player_name: str, header_arr: list[str], value_arr: list[str]) -> str:
+        if not header_arr:
+            return ''
+        player_name = player_name.replace('-', ' ').title()
+        stats_dic: dict[str, str] = {
+            head: value for head, value in zip(header_arr, value_arr)}
+        game_opponent = stats_dic['Matchup'].split()[-1]
+        pts = stats_dic['PTS']
+        reb = stats_dic['REB']
+        ast = stats_dic['AST']
+        date = Chrome_webdriver.date_converter(stats_dic['Game Date'])
+        return f"{player_name} {pts} pts {reb} reb {ast} ast {date} vs {game_opponent.upper()} Highlights.mp4"
 
     def player_highlight(self, player_url: str, game_url: str, date: str) -> list[str]:
         season = self.determine_season(date)
-        player_id = self.get_player_id(player_url)
-        game_id = self.get_game_id(game_url)
+        player_id, player_name = self.separate_player_url(player_url)
+        game_id = self.separate_game_url(game_url)
         target_list = []
         for key, val in HIGHLIGHTS_TARGET.items():
             url = f'https://www.nba.com/stats/events/?ContextMeasure={key}&GameID={game_id}&PlayerID={player_id}&Season={season}&flag={val}&sct=plot&section=game'
@@ -129,11 +163,24 @@ class Chrome_webdriver(webdriver.Chrome):
                 target_list.append(video_url)
         return target_list
 
-    def player_lastest_highlight(self, player_url: str) -> tuple[list[str], list[str], list[str]]:
-        highlight_index = set()
-        header_arr, value_arr = [], []
-        extra_url, target_list = [], []
+    def player_lastest_highlight(self, player_id: str) -> tuple[list[str], list[str], list[str]]:
+        highlight_index: set[int] = set()
+        header_arr: list[str] = []
+        value_arr: list[str] = []
+        extra_url: list[str] = []
+        target_list: list[str] = []
+        player_url = f'https://www.nba.com/player/{player_id}'
         self.get(player_url)
+
+        # check the lastest game is today
+        date_element = self.find_element(
+            By.CSS_SELECTOR, 'td[class="primary text PlayerGameLogs_primaryCol__bKTSD"] a')
+        lastest_date = date_element.get_attribute('innerHTML')
+        lastest_date = self.date_converter(lastest_date)
+        today = (datetime.datetime.now() -
+                 datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+        if lastest_date != today:
+            return ([], [], [])
 
         # collect the header
         header_element = self.find_elements(

@@ -1,4 +1,11 @@
 selenium
 moviepy
-ffmpeg
 webdriver_manager
+flask_sqlalchemy
+flask
+celery
+google-api-python-client
+google_auth_oauthlib
+google-auth-httplib2
+oauth2client
+pandas
